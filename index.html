@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>BCITS MQTT Console</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:wght@300">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="custom_css.css">
+    <style>
+        html,
+        body,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5 {
+            font-family: "Roboto", sans-serif
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.11.0/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js" type="text/javascript"></script>
+    <script src="external-lib/pbf.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script>
+    <script src="util.js"></script>
+    <script src="app.js"></script>
+    <script src="session.js"></script>
+    <script src="protobuf-lib/wirepas/pbf-messaging.js"></script>
+    <script src="mqtt_client.js"></script>
+    <script src="ui_connection.js"></script>
+    <script src="ui_gateways.js"></script>
+    <script src="ui_messages.js"></script>
+    <script src="ui_nodes.js"></script>
+    <script src="ui_overview.js"></script>
+    <script src="ui_session.js"></script>
+    <script src="ui.js"></script>
+</head>
+
+<body class="w3-light-grey" onload="initialize_ui();">
+
+    <!-- Top container -->
+    <div class="w3-bar w3-top w3-black w3-large" style="z-index: 4">
+        <button class="w3-bar-item w3-button w3-hide-large w3-hover-none w3-hover-text-light-grey" onclick="w3_open();"><i class="fa fa-bars"></i></button>
+        <span id=main_logo class="w3-bar-item w3-left"></span>
+        <span id=main_title class="w3-bar-item w3-left w3-hide-small">BCITS MQTT Console</span>
+        <span id=connection_status class="w3-bar-item w3-right" onclick="set_ui_mode(this)" data-mode="connection_mode">Disconnected</span>
+    </div>
+
+    <!-- Sidebar/menu -->
+    <nav class="w3-sidebar w3-collapse w3-white w3-animate-left" style="z-index: 3; width: 300px;" id="mySidebar">
+        <br>
+        <div id=date class="w3-container">
+            <h3>Date</h3>
+        </div>
+        <hr>
+
+        <div class="w3-bar-block">
+            <div class="w3-bar-item w3-button w3-padding-16 w3-hide-large w3-dark-grey w3-hover-black" onclick="w3_close()" title="close menu">
+                <i class="fa fa-remove fa-fw"></i> Close Menu
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="overview_mode">
+                <i class="fa fa-dashboard fa-fw"></i> Overview
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="connection_mode">
+                <i class="fa fa-plug a-fw"></i> MQTT connection
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="message_mode">
+                <i class="fa fa-comment fa-fw"></i> Messages
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="node_mode">
+                <i class="fa fa-microchip fa-fw"></i> Nodes
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="gateway_mode">
+                <i class="fa fa-server fa-fw"></i> Gateways
+            </div>
+            <div class="w3-bar-item w3-button w3-padding" onclick="set_ui_mode(this)" data-mode="session_mode">
+                <i class="fa fa-file-archive-o fa-fw"></i> Session
+            </div>
+        </div>
+
+        <div class="w3-bar-block w3-bottom">
+            <i class="fa fa fa-barcode fa-fw"></i> 4f0b59
+        </div>
+
+    </nav>
+
+    <!-- Overlay effect when opening sidebar on small screens -->
+    <div class="w3-overlay w3-hide-large w3-animate-opacity" onclick="w3_close()" style="cursor: pointer" title="close side menu" id="myOverlay"></div>
+
+    <!-- !PAGE CONTENT! -->
+    <div class="w3-main" style="margin-left: 300px; margin-top: 43px;">
+
+        <!-- Header -->
+        <div id=overview_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-plug"></i> MQTT connection</b>
+                </h5>
+            </header>
+            <div class="w3-row-padding w3-margin-bottom">
+                <div class="w3-half" onclick="set_ui_mode(this)" data-mode="connection_mode">
+                    <div id=con_panel class="w3-container w3-grey w3-text-white w3-padding-16">
+                        <div class="w3-left">
+                            <i class="fa fa-plug w3-xxxlarge"></i>
+                        </div>
+                        <div class="w3-right">
+                            <h3 id=con_time>Unconnected</h3>
+                        </div>
+                        <div class="w3-clear"></div>
+                        <h4 id=con_mqtt_host>-</h4>
+                    </div>
+                </div>
+            </div>
+
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-dashboard"></i> Network statistics</b>
+                </h5>
+            </header>
+
+            <div class="w3-row-padding w3-margin-bottom">
+                <div class="w3-quarter" onclick="set_ui_mode(this)" data-mode="message_mode">
+                    <div class="w3-container wp-red w3-padding-16">
+                        <div class="w3-left">
+                            <i class="fa fa-comment w3-xxxlarge"></i>
+                        </div>
+                        <div class="w3-right">
+                            <h3 div id=message_number>0</h3>
+                        </div>
+                        <div class="w3-clear"></div>
+                        <h4>Messages</h4>
+                    </div>
+                </div>
+                <div class="w3-quarter" onclick="set_ui_mode(this)" data-mode="node_mode">
+                    <div class="w3-container wp-yellow w3-text-white w3-padding-16">
+                        <div class="w3-left">
+                            <i class="fa fa-microchip w3-xxxlarge"></i>
+                        </div>
+                        <div class="w3-right">
+                            <h3 div id=node_number>0</h3>
+                        </div>
+                        <div class="w3-clear"></div>
+                        <h4>Nodes</h4>
+                    </div>
+                </div>
+                <div class="w3-quarter" onclick="set_ui_mode(this)" data-mode="gateway_mode">
+                    <div class="w3-container wp-brown w3-text-white w3-padding-16">
+                        <div class="w3-left">
+                            <i class="fa fa-server w3-xxxlarge"></i>
+                        </div>
+                        <div class="w3-right">
+                            <h3 div id=gateway_number>0</h3>
+                        </div>
+                        <div class="w3-clear"></div>
+                        <h4>Gateways</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!--  
+      <header class="w3-container" style="padding-top: 22px">
+        <h5>
+          <b><i class="fa fa-bar-chart"></i> Traffic</b>
+        </h5>
+      </header>
+       -->
+        </div>
+        <!-- Header -->
+        <div id=connection_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-plug"></i> MQTT broker connection </b>
+                </h5>
+            </header>
+            <div class="w3-row-padding w3-margin-left w3-margin-bottom" style="max-width: 50vh;">
+                <form name="mqtt_connection" onsubmit="uiConnection.onConnectClick(); return false">
+                    <div class="form-group">
+                        <input id="mqtt_host" type="text" value="localhost">
+                        <label>Address</label>
+                    </div>
+                    <div class="form-group">
+                        <input id="mqtt_port" type="number" value=9001>
+                        <label>Port</label>
+                    </div>
+                    <div class="form-group">
+                        <input id="mqtt_use_ssl" type="checkbox">
+                        <label>SSL</label>
+                    </div>
+                    <div class="form-group">
+                        <input id="mqtt_username" type="text">
+                        <label>Username</label>
+                    </div>
+                    <div class="form-group">
+                        <input id="mqtt_password" type="password">
+                        <label>Password</label>
+                    </div>
+                    <br>
+                    <div>
+                        <input type="reset" value="Reset form">
+                    </div>
+                    <br>
+                    <div>
+                        <input id="connect_mqtt" type="submit" value="Connect">
+                    </div>
+                    <br>
+                </form>
+                <div>
+                    <button id="disconnect_mqtt" class="disconnect" onclick="networkInterface.disconnect()">Disconnect</button>
+                </div>
+                <br>
+
+                <details>
+                    <summary>Session log</summary>
+                    <div class="messages-window w3-container w3-text-black">
+                        <p id="session_log_id"></p>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div id=message_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-comment"></i> Messages </b>
+                </h5>
+            </header>
+            <div id="messages" class="w3-rest w3-margin-left w3-margin-right">
+                <!--input class="search" placeholder="Search" /-->
+                <span class="terminal_field dir">
+                  <button class="sort dir button_no_border" data-sort="dir">Direction</button>
+                </span>
+                <span class="terminal_field rx_ts">
+                  <button class="sort button_no_border rx_ts" data-sort="rx_ts">Timestamp</button>
+                </span>
+                <span class="terminal_field terminal_gw">
+                  <button class="sort button_no_border gw_id" data-sort="gw_id">Gateway</button>
+                  <span>/</span>
+                <button class="sort button_no_border sink_id" data-sort="sink_id">Sink</button>
+                <span>/</span>
+                <button class="sort button_no_border network_id" data-sort="network_id">Network</button>
+                </span>
+                <span class="terminal_field terminal_add">
+                    <span>Address: </span>
+                <button class="sort button_no_border src_add" data-sort="src_add">Source</button>
+                <span class="fa fa-arrow-right"></span>
+                <button class="sort button_no_border dest_add" data-sort="dest_add">Destination</button>
+                </span>
+                <span class="terminal_field terminal_ep">
+                  <span>Endpoint: </span>
+                <button class="sort button_no_border src_ep" data-sort="src_ep">Source</button>
+                <span class="fa fa-arrow-right"></span>
+                <button class="sort button_no_border dest_ep" data-sort="dest_ep">Destination</button>
+                </span>
+                <span class="terminal_field qos">
+                  <button class="sort button_no_border qos" data-sort="qos">Quality Of Service</button>
+                </span>
+                <span class="terminal_field terminal_additional_value">
+                  <button class="sort button_no_border hop_count" data-sort="hop_count">Hop Count</button>
+                  <button class="sort button_no_border travel_time_ms" data-sort="travel_time_ms">Travel Time (ms)</button>
+                </span>
+                <span class="terminal_field payload_size">
+                    <button class="sort payload_size button_no_border" data-sort="payload_size">Payload size (bytes)</button>
+                  </span>
+                <hr>
+                <details>
+                    <summary>Filters</summary>
+                    <form name="message_filter" class="w3-container" onsubmit="uiMessages.onFilterSet(); return false">
+                        <span class="same_line">
+                            <label for="gw_id_filter" class="filter_label gw_id">Gateway</label>
+                            <input id="gw_id_filter" class="filter_input gw_id" type="text" style="width: 20ch">
+                        </span>
+                        <span class="same_line">
+                            <label for="sink_id_filter" class="filter_label sink_id">Sink</label>
+                            <input id="sink_id_filter" class="filter_input sink_id" type="text" style="width: 10ch">
+                        </span>
+                        <span class="same_line">
+                            <label for="network_id_filter" class="filter_label network_id">Network Add</label>
+                            <input id="network_id_filter" class="filter_input network_id" style="width: 10ch" type="Number">
+                        </span>
+                        <span class="same_line">
+                            <label for="src_add_filter" class="filter_label src_add">Src Add</label>
+                            <input id="src_add_filter" class="filter_input src_add" type="Number" style="width: 13ch">
+                        </span>
+                        <span class="same_line">
+                            <label for="dest_add_filter" class="filter_label dest_add">Dest Add</label>
+                            <input id="dest_add_filter" class="filter_input dest_add" type="Number" style="width: 13ch">
+                        </span>
+                        <span class="same_line">
+                            <label for="src_ep_filter" class="filter_label src_ep">Src EP</label>
+                            <input id="src_ep_filter" class="filter_input src_ep check" style="width: 4ch" type="number" min=0 max=255>
+                        </span>
+                        <span class="same_line">
+                            <label for="dest_ep_filter" class="filter_label dest_ep">Dst EP</label>
+                            <input id="dest_ep_filter" class="filter_input dest_ep check" style="width: 4ch" type="number" min=0 max=255>
+                        </span>
+                        <input id="enable_message_filter" type="submit" value="Add">
+                    </form>
+                    <div class="messages-window w3-container w3-text-black">
+                        <ul id="list_active_filters"></ul>
+                    </div>
+                </details>
+                <br>
+                <div id=message_list class="messages-window w3-container w3-white w3-text-black" style="overflow-y: scroll; height: 50vh; resize: vertical;">
+                    <ul class="list w3-text-grey w3-no-padding"></ul>
+                </div>
+                <hr>
+                <form name="message_downlink" class="w3-container" onsubmit="uiMessages.onSentPressed(); return false">
+                    <span class="same_line">
+                        <label for="gw_id_downlink" class="filter_label gw_id">Gateway</label>
+                        <input id="gw_id_downlink" class="filter_input gw_id" type="text" style="width: 20ch" required="true">
+                    </span>
+                    <span class="same_line">
+                        <label for="sink_id_downlink" class="filter_label sink_id">Sink</label>
+                        <input id="sink_id_downlink" class="filter_input sink_id" type="text" style="width: 10ch" required="true">
+                    </span>
+                    <span class="same_line">
+                        <label for="dest_add_downlink" class="filter_label dest_add">Dest Add</label>
+                        <input id="dest_add_downlink" class="filter_input dest_add" type="Number" style="width: 13ch" min=0 max=4294967295 required="true">
+                    </span>
+                    <span class="same_line">
+                        <label for="src_ep_downlink" class="filter_label src_ep">Src EP</label>
+                        <input id="src_ep_downlink" class="filter_input src_ep" style="width: 4ch" type="number" min=0 max=255 required="true">
+                    </span>
+                    <span class="same_line">
+                        <label for="dest_ep_downlink" class="filter_label dest_ep">Dst EP</label>
+                        <input id="dest_ep_downlink" class="filter_input dest_ep" style="width: 4ch" type="number" min=0 max=255 required="true">
+                    </span>
+                    <span class="same_line">
+                        <label for="qos_downlink" class="filter_label qos">QoS</label>
+                        <select id="qos_downlink" class="filter_input qos" type="number" min=0 max=1>
+                            <option value="0">Normal</option>
+                            <option value="1">High</option>
+                        </select>
+                    </span>
+                    <br>
+                    <span class="same_line">
+                        <label for="payload_downlink">0x</label>
+                        <input id="payload_downlink" class="check" pattern="(([a-fA-F\d]{2})[ ]*)+" placeholder="12 34 ab cd" style="width: 60em" required="true">
+                    </span>
+                    <input id="enable_message_downlink" type="submit" value="Send">
+                </form>
+                <hr>
+                <div class="btn-group w3-container w3-right" style="height: 10vh;">
+                    <label for="num_message"># of messages to display</label>
+                    <br>
+                    <input id="num_message" type="number" value=100>
+                    <button id="update_message_button" onclick="uiMessages.onManualUpdate()">Update</button>
+                    <label for="live_update_message">Live update</label>
+                    <input id="live_update_message" type="checkbox" onclick="uiMessages.onLiveUpdateChange(this)">
+                </div>
+            </div>
+        </div>
+
+        <div id=gateway_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-server"></i> Gateways</b>
+                </h5>
+            </header>
+
+            <header class="w3-container">
+                <label for="live_update_gateway">Live update</label>
+                <input id="live_update_gateway" type="checkbox" onclick="uiGateways.onLiveUpdateChange(this)">
+            </header>
+
+            <div class="w3-rest w3-margin-left w3-margin-right w3-margin-bottom">
+                <!-- Tab links -->
+                <div id=gateway_tabs class="tab"></div>
+                <div id=gateway_info class="w3-margin-top">
+                    <div class="col-50">
+                        <label for="gateway_model">Model:</label>
+                        <br>
+                        <input disabled id=gateway_model></input>
+                    </div>
+                    <div class="col-50">
+                        <label for="gateway_version">Version:</label>
+                        <br>
+                        <input disabled id=gateway_version></input>
+                    </div>
+                    <br><br>
+                </div>
+                <div id=gateway_content class="w3-margin-top"></div>
+                <div id=sink_content class="w3-margin-left w3-margin-top">
+                    <div class="col-50">
+                        <details class='w3-margin-top'>
+                            <summary>Node Configuration</summary>
+                            <div class="w3-margin-left w3-margin-top w3-margin-bottom">
+                                <label for="node_started">Stack started:</label>
+                                <br>
+                                <input id=node_started type="checkbox"></input>
+                                <br> <br>
+                                <label for="node_role">Node role:</label>
+                                <br>
+                                <select id=node_role>
+                                <option value="1">Sink</option>
+                                <option value="2">Router</option>
+                                <option value="3">Non Router</option></select>
+                                <br>
+                                <label for="low_latency">Low latency:</label>
+                                <br>
+                                <input id=low_latency type="checkbox"></input>
+                                <br> <br>
+                                <label for="node_address">Node Address:</label>
+                                <br>
+                                <input id=node_address class="check" type="number" min=1 max=4294967294></input>
+                                <br> <br>
+                                <label for="network_address">NetworkAddress:</label>
+                                <br>
+                                <input id=network_address class="check" type="number" min=1 max=16777215></input>
+                                <br> <br>
+                                <label for="network_channel">NetworkChannel:</label>
+                                <br> <select id=network_channel></select> <br>
+                                <br>
+                                <label for="cipher_key">Cipher Key:</label>
+                                <br>
+                                <input id=cipher_key class="check" pattern="[a-fA-F\d]+" minlength="32" maxlength="32" /></input>
+                                <br>
+                                <label for="authen_key">Authentication Key:</label>
+                                <br>
+                                <input id=authen_key class="check" pattern="[a-fA-F\d]+" minlength="32" maxlength="32" /></input>
+                                <br>
+                                <br>
+                                <div id=update_sink_button></div>
+                            </div>
+                        </details>
+                        <details class='w3-margin-top'>
+                            <summary>Application and Diagnostics Configuration</summary>
+                            <div id=app_config class="w3-margin-left w3-margin-top w3-margin-bottom">
+                                <label for="app_config_diag_interval">Diagnostics interval:</label>
+                                <br>
+                                <select id=app_config_diag_interval>
+                                <option value="0">No diagnostics</option>
+                                <option value="30">30s</option>
+                                <option value="60">60s</option>
+                                <option value="120">120s</option>
+                                <option value="300">300s</option>
+                                <option value="600">600s</option>
+                                <option value="1800">1800s</option>
+                                </select><br>
+                                <label for="sequence_id">Sequence:</label>
+                                <br>
+                                <input id=sequence_id type="number" min="0" max="255"></input>
+                                <br>
+                                <label for="app_config_data">Data:</label>
+                                <br>
+                                <input id=app_config_data style='width:90%' class="check" pattern="(([a-fA-F\d]{2}))+" maxlength="160"></input>
+                                <br><br>
+                                <div id=update_app_config_button></div>
+                            </div>
+
+                        </details>
+                    </div>
+                    <div class="col-50">
+                        <details class='w3-margin-top'>
+                            <summary>Node information</summary>
+                            <div class="w3-margin-left w3-margin-top w3-margin-bottom">
+                                <label for="stack_version">Stack version:</label>
+                                <br>
+                                <input disabled id=stack_version></input>
+                                <br> <br>
+                                <label for="stack_profile">Stack profile:</label>
+                                <br>
+                                <input disabled id=stack_profile></input>
+                                <br> <br>
+                                <label for="hw_magic">Hardware:</label>
+                                <br>
+                                <input disabled id=hw_magic></input>
+                                <br> <br>
+                                <label for="max_mtu">Max packet size:</label>
+                                <br>
+                                <input disabled id=max_mtu></input>
+                            </div>
+                        </details>
+                        <details class='w3-margin-top'>
+                            <summary>Otap & Scratchpad status</summary>
+                            <div class="w3-margin-left w3-margin-top w3-margin-bottom">
+                                <label for="scratchpad_stored_id">Scratchpad stored</label>
+                                <br>
+                                <input style='width:100%' disabled id="scratchpad_stored_id">
+                                <br> <br>
+                                <label for="scratchpad_type_id">Scratchpad type</label>
+                                <br>
+                                <input disabled id="scratchpad_type_id">
+                                <br> <br>
+                                <label for="scratchpad_status_id">Scratchpad status</label>
+                                <br>
+                                <input disabled id="scratchpad_status_id">
+                                <br> <br>
+                                <label for="scratchpad_action_id">Scratchpad action</label>
+                                <br>
+                                <input disabled id="scratchpad_action_id">
+                                <br>
+                                <button class="fa fa-refresh" style="border: none" id="refresh_otap_status_button_id"></button>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id=node_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-microchip"></i> Nodes</b>
+                </h5>
+            </header>
+            <div class="w3-rest w3-margin-left w3-margin-right">
+                <div id="nodes">
+                    <input class="search" placeholder="Search" />
+                    <hr>
+                    <div class="w3-container" style="overflow-y: scroll;">
+                        <table class="node_tbl">
+
+                            <tr class="node_table_row">
+                                <th class="node_tbl_col node_id sort" data-sort="node_id">Node Address</th>
+                                <th class="node_tbl_col last_seen sort" data-sort="last_seen">Last message</th>
+                                <th class="node_tbl_col last_gateway sort" data-sort="last_gateway">Last gateway
+                                </th>
+                                <th class="node_tbl_col last_sink sort" data-sort="last_sink">Last sink</th>
+                                <th class="node_tbl_col messages sort" data-sort="messages">Number of messages</th>
+                            </tr>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="w3-container" style="overflow-y: scroll; height: 65vh;">
+                        <!-- List class for List.js binding -->
+                        <table class="list node_tbl">
+                        </table>
+                    </div>
+                    <div class="btn-group w3-container w3-right" style="height: 10vh;">
+                        <button id="update_nodes_button" onclick="uiNodes.onManualUpdate()">Update</button>
+                        <label for="live_update_nodes">Live update</label>
+                        <input id="live_update_nodes" type="checkbox" onclick="uiNodes.onLiveUpdateChange(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id=session_mode>
+            <header class="w3-container" style="padding-top: 22px">
+                <h5>
+                    <b><i class="fa fa-file-archive-o"></i> Session</b>
+                </h5>
+            </header>
+            <div class="w3-row-padding w3-margin-left w3-margin-bottom">
+                <h6>
+                    <b> Save current session</b>
+                </h6>
+                <button id="save_session_button" onclick="sessionManager.saveSession()">Save</button>
+            </div>
+            <div class="w3-row-padding w3-margin-left w3-margin-bottom">
+                <h6>
+                    <b> Restore selected session</b>
+                </h6>
+                <input type="file" id="session_file_input" />
+                <hr>
+                <button id="restore_session_button" onclick="sessionManager.restoreSession()">Restore</button>
+            </div>
+        </div>
+
+        <!-- End page content -->
+    </div>
+
+    <script src="sidebar.js"></script>
+</body>
+
+</html>
